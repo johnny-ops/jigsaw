@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jigsaw Puzzle Challenge</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f8ff;
+            color: #333;
+            touch-action: manipulation;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: clamp(1.5rem, 5vw, 2.5rem);
+        }
+        .instructions {
+            max-width: 600px;
+            line-height: 1.6;
+            margin-bottom: 10px;
+            text-align: center;
+            font-size: clamp(1rem, 3vw, 1.2rem);
+            padding: 0 15px;
+        }
+        .game-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 800px;
+        }
+        .puzzle-container {
+            position: relative;
+            width: min(500px, 90vw);
+            height: min(500px, 90vw);
+            margin: 10px auto;
+            border: 3px solid #2c3e50;
+            background-color: #eee;
+            overflow: hidden;
+            touch-action: none;
+        }
+        .puzzle-piece {
+            position: absolute;
+            cursor: move;
+            transition: transform 0.1s;
+            filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.3));
+            touch-action: none;
+            will-change: transform, left, top;
+        }
+        .puzzle-piece:hover {
+            z-index: 10;
+            filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.5));
+        }
+        .puzzle-piece.placed {
+            cursor: default;
+            filter: none;
+            z-index: 1;
+        }
+        .puzzle-piece.active {
+            z-index: 20;
+            filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.7));
+        }
+        .piece-svg {
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        .controls {
+            margin-top: 15px;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        button {
+            padding: clamp(8px, 2vw, 10px) clamp(15px, 4vw, 20px);
+            font-size: clamp(0.9rem, 3vw, 1rem);
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.1s;
+            touch-action: manipulation;
+        }
+        button:active {
+            transform: scale(0.98);
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .shuffle-button {
+            background-color: #e74c3c;
+        }
+        .shuffle-button:hover {
+            background-color: #c0392b;
+        }
+        .game-info {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            width: min(500px, 90vw);
+            margin: 10px 0;
+            flex-wrap: wrap;
+        }
+        .timer {
+            font-size: clamp(1.2rem, 4vw, 1.5rem);
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .pieces-info {
+            font-size: clamp(1rem, 3vw, 1.2rem);
+            color: #2c3e50;
+        }
+        .progress-bar {
+            width: min(500px, 90vw);
+            height: 12px;
+            background-color: #ddd;
+            border-radius: 10px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+        .progress {
+            height: 100%;
+            background-color: #3498db;
+            width: 0%;
+            transition: width 0.3s;
+            border-radius: 10px;
+        }
+        .completion-message {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            color: white;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            text-align: center;
+            padding: 20px;
+        }
+        .completion-content {
+            max-width: 600px;
+            padding: 20px;
+            background-color: rgba(44, 62, 80, 0.8);
+            border-radius: 15px;
+        }
+        .completion-message h2 {
+            font-size: clamp(1.8rem, 6vw, 2.5rem);
+            margin-bottom: 20px;
+            color: #2ecc71;
+        }
+        .qr-code {
+            width: min(300px, 70vw);
+            height: min(300px, 70vw);
+            margin: 20px auto;
+            background-color: white;
+            padding: 10px;
+            border-radius: 10px;
+        }
+        .completion-time {
+            font-size: clamp(1.3rem, 5vw, 1.8rem);
+            color: #f1c40f;
+            margin: 15px 0;
+        }
+        .close-completion {
+            margin-top: 20px;
+            background-color: #2ecc71;
+            padding: 10px 25px;
+        }
+        .close-completion:hover {
+            background-color: #27ae60;
+        }
+        @media (max-width: 500px) {
+            .controls {
+                flex-direction: column;
+                gap: 10px;
+                width: 90%;
+            }
+            .game-info {
+                flex-direction: column;
+                gap: 5px;
+            }
+            button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Jigsaw Puzzle Challenge</h1>
+        <p class="instructions">Solve the jigsaw puzzle by dragging the pieces to their correct positions. Complete it as fast as you can!</p>
+    </div>
+    
+    <div class="game-info">
+        <div class="timer" id="timer">Time: 00:00</div>
+        <div class="pieces-info" id="pieces-info">Pieces: 0/25</div>
+    </div>
+    
+    <div class="progress-bar">
+        <div class="progress"></div>
+    </div>
+    
+    <div class="game-area">
+        <div class="puzzle-container" id="puzzle-container"></div>
+    </div>
+    
+    <div class="controls">
+        <button id="shuffle-button" class="shuffle-button">Shuffle</button>
+        <button id="restart-button">Restart Puzzle</button>
+    </div>
+    
+    <div class="completion-message" id="completion-message">
+        <div class="completion-content">
+            <h2>Congratulations!</h2>
+            <p>You've successfully completed the puzzle!</p>
+            <div class="completion-time" id="completion-time">Your time: 00:00</div>
+            <div class="qr-code" id="qr-code">
+                <img src="/api/placeholder/300/300" alt="QR Code">
+            </div>
+            <p>Scan this QR code to proceed to the next jigsaw puzzle challenge</p>
+            <button class="close-completion" id="close-completion">Play Again</button>
+        </div>
+    </div>
+    
+    <script>
+        const puzzleContainer = document.getElementById('puzzle-container');
+        const shuffleButton = document.getElementById('shuffle-button');
+        const restartButton = document.getElementById('restart-button');
+        const completionMessage = document.getElementById('completion-message');
+        const closeCompletionButton = document.getElementById('close-completion');
+        const timerDisplay = document.getElementById('timer');
+        const piecesInfoDisplay = document.getElementById('pieces-info');
+        const completionTimeDisplay = document.getElementById('completion-time');
+        const progressBar = document.querySelector('.progress');
+        
+        const gridSize = 5; 
+        let pieces = [];
+        let positions = [];
+        let originalPositions = [];
+        let startTime = null;
+        let timerInterval = null;
+        let placedPieces = 0;
+        let finalTime = '';
+        let activePiece = null;
+        let startX, startY;
+        let initialX, initialY;
+        
+        const puzzleImage = "cdm.png";
+        
+        
+        const svgPathTemplates = {
+            'topLeft': (w, h) => `M0,0 H${w} V${h} H${0.75*w} C${0.75*w},${h+0.15*h} ${0.25*w},${h+0.15*h} ${0.25*w},${h} H0 V${0.75*h} C${-0.15*w},${0.75*h} ${-0.15*w},${0.25*h} ${0},${0.25*h} Z`,
+            'topRight': (w, h) => `M0,0 H${0.75*w} C${0.75*w},${-0.15*h} ${0.25*w},${-0.15*h} ${0.25*w},${0} H${w} V${0.75*h} C${w+0.15*w},${0.75*h} ${w+0.15*w},${0.25*h} ${w},${0.25*h} V${h} H0 Z`,
+            'bottomRight': (w, h) => `M0,0 H${w} V${0.75*h} C${w+0.15*w},${0.75*h} ${w+0.15*w},${0.25*h} ${w},${0.25*h} V${h} H${0.75*w} C${0.75*w},${h+0.15*h} ${0.25*w},${h+0.15*h} ${0.25*w},${h} H0 Z`,
+            'bottomLeft': (w, h) => `M0,0 H${w} V${h} H${0.25*w} C${0.25*w},${h+0.15*h} ${0.75*w},${h+0.15*h} ${0.75*w},${h} H0 V${0.25*h} C${-0.15*w},${0.25*h} ${-0.15*w},${0.75*h} ${0},${0.75*h} Z`,
+            'leftEdge': (w, h) => `M0,0 H${0.75*w} C${0.75*w},${-0.15*h} ${0.25*w},${-0.15*h} ${0.25*w},${0} H${w} V${h} H${0.75*w} C${0.75*w},${h+0.15*h} ${0.25*w},${h+0.15*h} ${0.25*w},${h} H0 V${0.75*h} C${-0.15*w},${0.75*h} ${-0.15*w},${0.25*h} ${0},${0.25*h} Z`,
+            'rightEdge': (w, h) => `M0,0 H${w} V${0.75*h} C${w+0.15*w},${0.75*h} ${w+0.15*w},${0.25*h} ${w},${0.25*h} V${h} H${0} Z`,
+            'topEdge': (w, h) => `M0,0 H${0.25*w} C${0.25*w},${-0.15*h} ${0.75*w},${-0.15*h} ${0.75*w},${0} H${w} V${h} H0 Z`,
+            'bottomEdge': (w, h) => `M0,0 H${w} V${h} H${0.25*w} C${0.25*w},${h+0.15*h} ${0.75*w},${h+0.15*h} ${0.75*w},${h} H0 Z`,
+            'middle': (w, h) => `M0,0 H${0.25*w} C${0.25*w},${-0.15*h} ${0.75*w},${-0.15*h} ${0.75*w},${0} H${w} V${0.25*h} C${w+0.15*w},${0.25*h} ${w+0.15*w},${0.75*h} ${w},${0.75*h} V${h} H${0.75*w} C${0.75*w},${h+0.15*h} ${0.25*w},${h+0.15*h} ${0.25*w},${h} H0 V${0.75*h} C${-0.15*w},${0.75*h} ${-0.15*w},${0.25*h} ${0},${0.25*h} Z`
+        };
+        
+        function getPieceType(x, y, gridSize) {
+            if (x === 0 && y === 0) return 'topLeft';
+            if (x === gridSize - 1 && y === 0) return 'topRight';
+            if (x === 0 && y === gridSize - 1) return 'bottomLeft';
+            if (x === gridSize - 1 && y === gridSize - 1) return 'bottomRight';
+            if (x === 0) return 'leftEdge';
+            if (y === 0) return 'topEdge';
+            if (x === gridSize - 1) return 'rightEdge';
+            if (y === gridSize - 1) return 'bottomEdge';
+            return 'middle';
+        }
+        
+        function initPuzzle() {
+            resetTimer();
+            startTimer();
+            
+            puzzleContainer.innerHTML = '';
+            pieces = [];
+            positions = [];
+            originalPositions = [];
+            placedPieces = 0;
+            updateProgress();
+            
+            const containerWidth = puzzleContainer.offsetWidth;
+            const containerHeight = puzzleContainer.offsetHeight;
+            const pieceWidth = containerWidth / gridSize;
+            const pieceHeight = containerHeight / gridSize;
+            
+            
+            piecesInfoDisplay.textContent = `Pieces: 0/${gridSize * gridSize}`;
+            
+            for (let y = 0; y < gridSize; y++) {
+                for (let x = 0; x < gridSize; x++) {
+                    const piece = document.createElement('div');
+                    piece.className = 'puzzle-piece';
+                    
+                    const pieceType = getPieceType(x, y, gridSize);
+                    
+                    const svgNS = "http://www.w3.org/2000/svg";
+                    const svg = document.createElementNS(svgNS, "svg");
+                    svg.setAttribute("class", "piece-svg");
+                    svg.setAttribute("viewBox", `0 0 ${pieceWidth} ${pieceHeight}`);
+                    svg.setAttribute("width", pieceWidth);
+                    svg.setAttribute("height", pieceHeight);
+                    
+                    const path = document.createElementNS(svgNS, "path");
+                    let svgPath = svgPathTemplates[pieceType](pieceWidth, pieceHeight);
+                    
+                    path.setAttribute("d", svgPath);
+                    path.setAttribute("fill", `url(#pattern${x}-${y})`);
+                    path.setAttribute("stroke", "#333");
+                    path.setAttribute("stroke-width", "1");
+                    
+                    const defs = document.createElementNS(svgNS, "defs");
+                    const pattern = document.createElementNS(svgNS, "pattern");
+                    pattern.setAttribute("id", `pattern${x}-${y}`);
+                    pattern.setAttribute("patternUnits", "userSpaceOnUse");
+                    pattern.setAttribute("width", containerWidth);
+                    pattern.setAttribute("height", containerHeight);
+                    
+                    const image = document.createElementNS(svgNS, "image");
+                    image.setAttribute("href", puzzleImage);
+                    image.setAttribute("width", containerWidth);
+                    image.setAttribute("height", containerHeight);
+                    image.setAttribute("x", -x * pieceWidth);
+                    image.setAttribute("y", -y * pieceHeight);
+                    
+                    pattern.appendChild(image);
+                    defs.appendChild(pattern);
+                    svg.appendChild(defs);
+                    svg.appendChild(path);
+                    piece.appendChild(svg);
+                    
+                    const correctLeft = x * pieceWidth;
+                    const correctTop = y * pieceHeight;
+                    
+                    piece.dataset.correctLeft = correctLeft;
+                    piece.dataset.correctTop = correctTop;
+                    piece.dataset.index = pieces.length;
+                    
+                   
+                    piece.addEventListener('touchstart', handleTouchStart, { passive: false });
+                    piece.addEventListener('touchmove', handleTouchMove, { passive: false });
+                    piece.addEventListener('touchend', handleTouchEnd);
+                    
+                    
+                    piece.addEventListener('mousedown', handleMouseDown);
+                    
+                    puzzleContainer.appendChild(piece);
+                    pieces.push(piece);
+                    positions.push({ x: correctLeft, y: correctTop });
+                    originalPositions.push({ x: correctLeft, y: correctTop });
+                }
+            }
+            
+            shufflePieces();
+        }
+        
+        function handleTouchStart(e) {
+            e.preventDefault();
+            
+            if (this.classList.contains('placed')) return;
+            
+            activePiece = this;
+            activePiece.classList.add('active');
+            
+            const touch = e.touches[0];
+            startX = touch.clientX;
+            startY = touch.clientY;
+            
+            initialX = parseFloat(activePiece.style.left) || 0;
+            initialY = parseFloat(activePiece.style.top) || 0;
+        }
+        
+        function handleTouchMove(e) {
+            e.preventDefault();
+            if (!activePiece) return;
+            
+            const touch = e.touches[0];
+            movePiece(touch);
+        }
+        
+        function handleTouchEnd(e) {
+            if (!activePiece) return;
+            
+            finalizePieceMovement();
+            activePiece.classList.remove('active');
+            activePiece = null;
+        }
+        
+        function handleMouseDown(e) {
+            if (this.classList.contains('placed')) return;
+            
+            activePiece = this;
+            activePiece.classList.add('active');
+            
+            startX = e.clientX;
+            startY = e.clientY;
+            
+            initialX = parseFloat(activePiece.style.left) || 0;
+            initialY = parseFloat(activePiece.style.top) || 0;
+            
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+        }
+        
+        function handleMouseMove(e) {
+            if (!activePiece) return;
+            movePiece(e);
+        }
+        
+        function handleMouseUp() {
+            if (!activePiece) return;
+            
+            finalizePieceMovement();
+            
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+            
+            activePiece.classList.remove('active');
+            activePiece = null;
+        }
+        
+        function movePiece(e) {
+            const currentX = e.clientX || e.clientX;
+            const currentY = e.clientY || e.clientY;
+            
+            const deltaX = currentX - startX;
+            const deltaY = currentY - startY;
+            
+            const newX = initialX + deltaX;
+            const newY = initialY + deltaY;
+            
+            const containerWidth = puzzleContainer.offsetWidth;
+            const containerHeight = puzzleContainer.offsetHeight;
+            const pieceWidth = containerWidth / gridSize;
+            const pieceHeight = containerHeight / gridSize;
+            
+            activePiece.style.left = Math.max(0, Math.min(newX, containerWidth - pieceWidth)) + 'px';
+            activePiece.style.top = Math.max(0, Math.min(newY, containerHeight - pieceHeight)) + 'px';
+        }
+        
+        function finalizePieceMovement() {
+            const correctLeft = parseFloat(activePiece.dataset.correctLeft);
+            const correctTop = parseFloat(activePiece.dataset.correctTop);
+            const currentLeft = parseFloat(activePiece.style.left);
+            const currentTop = parseFloat(activePiece.style.top);
+            
+            
+            const snappingThreshold = Math.max(15, 30 / gridSize); 
+            
+            if (
+                Math.abs(currentLeft - correctLeft) < snappingThreshold &&
+                Math.abs(currentTop - correctTop) < snappingThreshold
+            ) {
+                activePiece.style.left = correctLeft + 'px';
+                activePiece.style.top = correctTop + 'px';
+                activePiece.classList.add('placed');
+                
+               
+                const successSound = new Audio("data:audio/wav;base64,//uQRAAAAWMSLwUIYAAsYkXgoQwAEaYLWfkWgAI0wWs/ItAAAGDgYtAgAyN+QWaAAihwMWm4G8QQRDiMcCBcH3Cc+CDv/7xA4Tvh9Rz/y8QADBwMWgQAZG/ILNAARQ4GLTcDeIIIhxGOBAuD7hOfBB3/94gcJ3w+o5/5eIAIAAAVwWgQAVQ2ORaIQwEMAJiDg95G4nQL7mQVWI6GwRcfsZAcsKkJvxgxEjzFUgfHoSQ9Qq7KNwqHwuB13MA4a1q/DmBrHgPcmjiGoh//EwC5nGPEmS4RcfkVKOhJf+WOgoxJclFz3kgn//dBA+ya1GhurNn8zb//9NNutNuhz31f////9vt///z+IdAEAAAK4LQIAKobHItEIYCGAExBwe8jcToF9zIKrEdDYIuP2MgOWFSE34wYiR5iqQPj0JIeoVdlG4VD4XA67mAcNa1fhzA1jwHuTRxDUQ//iYBczjHiTJcIuPyKlHQkv/LHQUYkuSi57yQT//uggfZNajQ3Vmz+Zt//+mm3Wm3Q576v////+32///5/EOgAAADVghQAAAAA//uQZAUAB1WI0PZugAAAAAoQwAAAEk3nRd2qAAAAACiDgAAAAAAABCqEEQRLCgwpBGMlJkIz8jKhGvj4k6jzRnqasNKIeoh5gI7BJaC1A1AoNBjJgbyApVS4IDlZgDU5WUAxEKDNmmALHzZp0Fkz1FMTmGFl1FMEyodIavcCAUHDWrKAIA4aa2ooQhA9CARyDJglGc66hEyjKwAQCMUOk0KilYUOA6hSYAQCkF2N0iqiOM6pABQJwXbhwpCQpuODLvMwIQYDVR9RA==");
+                successSound.volume = 0.3;
+                successSound.play().catch(e => {});
+                
+                if (!activePiece.dataset.counted) {
+                    activePiece.dataset.counted = "true";
+                    placedPieces++;
+                    piecesInfoDisplay.textContent = `Pieces: ${placedPieces}/${gridSize * gridSize}`;
+                    updateProgress();
+                }
+                
+                if (placedPieces === pieces.length) {
+                    puzzleComplete();
+                }
+            }
+            
+            const index = pieces.indexOf(activePiece);
+            if (index !== -1) {
+                positions[index] = {
+                    x: parseFloat(activePiece.style.left),
+                    y: parseFloat(activePiece.style.top)
+                };
+            }
+        }
+        
+        function shufflePieces() {
+            const containerWidth = puzzleContainer.offsetWidth;
+            const containerHeight = puzzleContainer.offsetHeight;
+            const pieceWidth = containerWidth / gridSize;
+            const pieceHeight = containerHeight / gridSize;
+            
+            pieces.forEach((piece, index) => {
+                piece.classList.remove('placed');
+                piece.removeAttribute('data-counted');
+           
+                const padding = Math.min(pieceWidth, pieceHeight) * 0.1;
+                const randomX = padding + Math.random() * (containerWidth - pieceWidth - padding * 2);
+                const randomY = padding + Math.random() * (containerHeight - pieceHeight - padding * 2);
+                
+                piece.style.left = randomX + 'px';
+                piece.style.top = randomY + 'px';
+                
+                positions[index] = { x: randomX, y: randomY };
+            });
+            
+            placedPieces = 0;
+            piecesInfoDisplay.textContent = `Pieces: 0/${gridSize * gridSize}`;
+            updateProgress();
+        }
+        
+        function puzzleComplete() {
+            stopTimer();
+            completionTimeDisplay.textContent = `Your time: ${finalTime}`;
+            completionMessage.style.display = 'flex';
+            
+           
+            puzzleContainer.style.transition = 'transform 0.5s';
+            puzzleContainer.style.transform = 'scale(1.05)';
+            setTimeout(() => {
+                puzzleContainer.style.transform = 'scale(1)';
+            }, 500);
+        }
+        
+        function updateProgress() {
+            const percentComplete = (placedPieces / pieces.length) * 100;
+            progressBar.style.width = percentComplete + '%';
+        }
+        
+        function startTimer() {
+            startTime = new Date();
+            timerInterval = setInterval(updateTimer, 1000);
+        }
+        
+        function stopTimer() {
+            clearInterval(timerInterval);
+        }
+        
+        function resetTimer() {
+            stopTimer();
+            timerDisplay.textContent = 'Time: 00:00';
+        }
+        
+        function updateTimer() {
+            const now = new Date();
+            const elapsed = Math.floor((now - startTime) / 1000);
+            const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
+            const seconds = (elapsed % 60).toString().padStart(2, '0');
+            finalTime = `${minutes}:${seconds}`;
+            timerDisplay.textContent = `Time: ${finalTime}`;
+        }
+        
+        shuffleButton.addEventListener('click', function() {
+            shufflePieces();
+            resetTimer();
+            startTimer();
+        });
+        
+        restartButton.addEventListener('click', function() {
+            initPuzzle();
+        });
+        
+        closeCompletionButton.addEventListener('click', function() {
+            completionMessage.style.display = 'none';
+            initPuzzle();
+        });
+        
+        window.addEventListener('DOMContentLoaded', initPuzzle);
+        
+        let resizeTimeout;
+        window.addEventListener('resize', function() {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                const currentPositions = pieces.map((piece, index) => ({
+                    x: parseFloat(piece.style.left) || 0,
+                    y: parseFloat(piece.style.top) || 0,
+                    placed: piece.classList.contains('placed')
+                }));
+                
+                initPuzzle();
+                
+                pieces.forEach((piece, index) => {
+                    if (currentPositions[index].placed) {
+                        piece.style.left = originalPositions[index].x + 'px';
+                        piece.style.top = originalPositions[index].y + 'px';
+                        piece.classList.add('placed');
+                        piece.dataset.counted = "true";
+                        placedPieces++;
+                    } else {
+                        piece.style.left = currentPositions[index].x + 'px';
+                        piece.style.top = currentPositions[index].y + 'px';
+                    }
+                });
+                
+                updateProgress();
+            }, 200);
+        });
+    </script>
+</body>
+</html>
